@@ -5,7 +5,7 @@ import { assertObject } from '../utils/assertions'
 import type { AddressBookJson, AddressBookEntry } from './types/address-book'
 
 /**
- * A class to manages the address book
+ * A class to manage the address book
  */
 export class AddressBook {
   // The path to the address book file
@@ -62,6 +62,7 @@ export class AddressBook {
     try {
       return this.addressBook[this.chainId][name]
     } catch (e) {
+      // TODO: should we throw instead?
       // We could use ethers.constants.AddressZero but it's a costly import
       return { address: '0x0000000000000000000000000000000000000000' }
     }

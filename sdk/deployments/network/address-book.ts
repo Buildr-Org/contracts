@@ -1,6 +1,6 @@
-import { isGraphChainId } from '../../lib/cross-chain'
-import { AddressBookJson } from '../../lib/deployment/address-book'
-import { assertObject } from '../../lib/utils'
+import { isGraphChainId } from '../../src/chain'
+import { AddressBookJson } from '../../src/deployment'
+import { assertObject } from '../../src/utils/assertions'
 import { GraphNetworkContractName, isGraphNetworkContractName } from './contract-list'
 
 export type GraphNetworkAddressBookJson = AddressBookJson<string, GraphNetworkContractName>

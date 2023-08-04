@@ -3,3 +3,5 @@ export * from './address-book'
 export * from './deploy/contract'
 export * from './deploy/proxy'
 export * from './contract/contract'
+
+export * from './types'

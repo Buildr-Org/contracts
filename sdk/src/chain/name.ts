@@ -18,6 +18,9 @@ export const chainNames: GraphChainName[] = [...l1ChainNames, ...l2ChainNames]
 export const l1ToL2Name = (name: string): GraphChainName => {
   if (!isGraphL1ChainName(name)) throw new Error(`Invalid L1 chain name: ${name}`)
   const pair = ChainList.find((cp) => cp.l1.name === name)
+  if (pair === undefined) {
+    throw new Error(`Could not find L2 chain name for L1 chain name: ${name}`)
+  }
   return pair.l2.name
 }
 /**
@@ -30,6 +33,9 @@ export const l1ToL2Name = (name: string): GraphChainName => {
 export const l2ToL1Name = (name: string): GraphChainName => {
   if (!isGraphL2ChainName(name)) throw new Error(`Invalid L2 chain name: ${name}`)
   const pair = ChainList.find((cp) => cp.l2.name === name)
+  if (pair === undefined) {
+    throw new Error(`Could not find L1 chain name for L2 chain name: ${name}`)
+  }
   return pair.l1.name
 }
 /**

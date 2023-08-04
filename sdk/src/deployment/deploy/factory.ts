@@ -1,6 +1,8 @@
 import { ContractFactory } from 'ethers'
-import { Artifact, Libraries } from 'hardhat/types'
 import { loadArtifact } from './artifacts'
+
+import type { Artifact } from 'hardhat/types'
+import type { Libraries } from '../types/artifacts'
 
 /**
  * Gets a contract factory for a given contract name

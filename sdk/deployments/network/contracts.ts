@@ -1,9 +1,9 @@
 import { providers, Signer } from 'ethers'
 
-import { getAddressBook } from '../../lib/deployment/address-book'
-import { loadContracts } from '../../lib/deployment/contract'
-import { GraphChainId, isGraphChainId, isGraphL1ChainId } from '../../lib/cross-chain'
-import { assertObject } from '../../lib/utils'
+import { AddressBook, loadContracts } from '../../src/deployment'
+import { GraphChainId, isGraphChainId, isGraphL1ChainId } from '../../src/chain'
+import { assertObject } from '../../src/utils/assertions'
+
 import {
   GraphNetworkL1ContractNameList,
   GraphNetworkL2ContractNameList,
@@ -70,7 +70,7 @@ export function assertGraphNetworkContracts(
 ): asserts contracts is GraphNetworkContracts {
   assertObject(contracts)
 
-  // Allow contracts not defined in GraphNetworkContractNameList but raise a warning
+  // Allow loading contracts not defined in GraphNetworkContractNameList but raise a warning
   const contractNames = Object.keys(contracts)
   if (!contractNames.every((c) => isGraphNetworkContractName(c))) {
     console.warn(
@@ -106,8 +106,8 @@ export function loadGraphNetworkContracts(
   if (!isGraphChainId(chainId)) {
     throw new Error(`ChainId not supported: ${chainId}`)
   }
-  const addressBook = getAddressBook(addressBookPath, chainId)
-  assertGraphNetworkAddressBook(addressBook.json)
+  const addressBook = new AddressBook(addressBookPath, chainId)
+  assertGraphNetworkAddressBook(addressBook.addressBook)
 
   const contracts = loadContracts<GraphNetworkContractName>(addressBook, signerOrProvider, true)
   assertGraphNetworkContracts(contracts, chainId)

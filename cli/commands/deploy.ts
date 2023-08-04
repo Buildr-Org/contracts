@@ -5,8 +5,8 @@ import {
   deployContractAndSave,
   deployContractWithProxy,
   deployContractWithProxyAndSave,
-} from '../../sdk/lib/deployment/deploy'
-import { getContractAt } from '../../sdk/lib/deployment/contract'
+} from '../../sdk/src/deployment'
+import { loadContractAt } from '../../sdk/src/deployment'
 import { loadEnv, CLIArgs, CLIEnvironment } from '../env'
 import { logger } from '../logging'
 import { confirm } from '../helpers'
@@ -27,11 +27,11 @@ export const deploy = async (cli: CLIEnvironment, cliArgs: CLIArgs): Promise<voi
   switch (deployType) {
     case 'deploy':
       logger.info(`Deploying contract ${contractName}...`)
-      await deployContract(contractName, contractArgs, cli.wallet)
+      await deployContract(cli.wallet, contractName, contractArgs)
       break
     case 'deploy-save':
       logger.info(`Deploying contract ${contractName} and saving to address book...`)
-      await deployContractAndSave(contractName, contractArgs, cli.wallet, cli.addressBook)
+      await deployContractAndSave(cli.wallet, contractName, contractArgs, cli.addressBook)
       break
     case 'deploy-with-proxy':
       // Get the GraphProxyAdmin to own the GraphProxy for this contract
@@ -39,7 +39,7 @@ export const deploy = async (cli: CLIEnvironment, cliArgs: CLIArgs): Promise<voi
       if (!proxyAdminEntry) {
         throw new Error('GraphProxyAdmin not detected in the config, must be deployed first!')
       }
-      const proxyAdmin = getContractAt('GraphProxyAdmin', proxyAdminEntry.address)
+      const proxyAdmin = loadContractAt('GraphProxyAdmin', proxyAdminEntry.address)
 
       logger.info(`Deploying contract ${contractName} with proxy ...`)
       await deployContractWithProxy(

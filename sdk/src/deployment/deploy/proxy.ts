@@ -1,38 +1,12 @@
 import { loadArtifact } from './artifacts'
 import { AddressBook } from '../address-book'
 import { deployContract, deployContractAndSave } from './contract'
+import { hashHexString } from '../../utils/byte'
+import { loadContractAt } from '../contract/contract'
 
 import type { Contract, Signer } from 'ethers'
-import type { ContractParam, DeployResult } from '../types'
-import { hashHexString } from '../../utils/byte'
-
-/**
- * Deploys a proxy contract
- *
- * @remarks
- * This function won't deploy the implementation for the proxy, this must be done beforehand via {@link deployContract} or alltogether via {@link deployContractWithProxy}
- * If needed, the proxy admin must accept the implementation on the proxy contract.
- * This function can deploy any proxy contract as long as the constructor has the following signature:
- * `constructor(address implementation, address admin)`
- *
- * @privateRemarks This might not be worth it and instead we could just limit to `GraphProxy` contract
- *
- * @param sender Signer to deploy the contract with, must be already connected to a provider
- * @param name Name of the proxy contract to deploy
- * @param implementationAddress Address of the initial implementation contract
- * @param adminAddress Address of the proxy admin
- * @returns
- *
- * @throws Error if the sender is not connected to a provider
- */
-export const deployProxy = async (
-  sender: Signer,
-  name: string,
-  implementationAddress: string,
-  adminAddress: string,
-): Promise<DeployResult> => {
-  return deployContract(sender, name, [implementationAddress, adminAddress], false)
-}
+import type { ContractParam } from '../types'
+import type { DeployData, DeployResult, DeployWithProxyFunction } from '../types/deploy'
 
 /**
  * Deploys a contract with a proxy
@@ -52,30 +26,44 @@ export const deployProxy = async (
  *
  * @throws Error if the sender is not connected to a provider
  */
-export const deployContractWithProxy = async (
+export const deployContractWithProxy: DeployWithProxyFunction = async (
   sender: Signer,
-  name: string,
-  args: Array<ContractParam>,
-  proxyName: string,
-  proxyAdmin: Contract,
-  buildAcceptTx = false,
-): Promise<Contract> => {
+  contractData: DeployData,
+  addressBook: AddressBook,
+  proxyData: DeployData,
+): Promise<DeployResult> => {
+  if (!sender.provider) {
+    throw Error('Sender must be connected to a provider')
+  }
+
+  const proxyAdmin = getProxyAdmin(addressBook)
+
   // Deploy implementation
-  const { contract } = await deployContract(sender, name, [])
+  const implDeployResult = await deployContract(sender, {
+    name: contractData.name,
+    args: [],
+  })
 
   // Deploy proxy
-  const { contract: proxy } = await deployContract(
-    sender,
-    proxyName,
-    [contract.address, proxyAdmin.address],
-    false,
-  )
+  const { contract: proxy } = await deployContract(sender, {
+    name: proxyData.name,
+    args: [implDeployResult.contract.address, proxyAdmin.address],
+    opts: { autolink: false },
+  })
 
   // Accept implementation upgrade
-  await proxyAdminAcceptUpgrade(sender, contract, args, proxyAdmin, proxy.address, buildAcceptTx)
+  await proxyAdminAcceptUpgrade(
+    sender,
+    implDeployResult.contract,
+    contractData.args ?? [],
+    proxyAdmin,
+    proxy.address,
+    proxyData.opts?.buildAcceptTx ?? false,
+  )
 
   // Use interface of contract but with the proxy address
-  return contract.attach(proxy.address)
+  implDeployResult.contract = implDeployResult.contract.attach(proxy.address)
+  return implDeployResult
 }
 
 /**
@@ -93,40 +81,53 @@ export const deployContractWithProxy = async (
  *
  * @throws Error if the sender is not connected to a provider
  */
-export const deployContractWithProxyAndSave = async (
+export const deployContractWithProxyAndSave: DeployWithProxyFunction = async (
   sender: Signer,
-  name: string,
-  args: Array<ContractParam>,
-  proxyName: string,
-  proxyAdmin: Contract,
+  contractData: DeployData,
   addressBook: AddressBook,
-  buildAcceptTx?: boolean,
-): Promise<Contract> => {
-  // Deploy implementation
-  const { contract } = await deployContractAndSave(sender, name, [], addressBook)
-
-  // Deploy proxy
-  const { contract: proxy } = await deployContract(
-    sender,
-    proxyName,
-    [contract.address, proxyAdmin.address],
-    false,
-  )
-
-  // Accept implementation upgrade
-  await proxyAdminAcceptUpgrade(sender, contract, args, proxyAdmin, proxy.address, buildAcceptTx)
-
-  // Overwrite address entry with proxy
-  const artifact = loadArtifact(proxyName)
-  const contractEntry = addressBook.getEntry(name)
-
+  proxyData: DeployData,
+): Promise<DeployResult> => {
   if (!sender.provider) {
     throw Error('Sender must be connected to a provider')
   }
 
-  addressBook.setEntry(name, {
+  const proxyAdmin = getProxyAdmin(addressBook)
+
+  // Deploy implementation
+  const implDeployResult = await deployContractAndSave(
+    sender,
+    {
+      name: contractData.name,
+      args: [],
+    },
+    addressBook,
+  )
+
+  // Deploy proxy
+  const { contract: proxy } = await deployContract(sender, {
+    name: proxyData.name,
+    args: [implDeployResult.contract.address, proxyAdmin.address],
+    opts: { autolink: false },
+  })
+
+  // Accept implementation upgrade
+  await proxyAdminAcceptUpgrade(
+    sender,
+    implDeployResult.contract,
+    contractData.args ?? [],
+    proxyAdmin,
+    proxy.address,
+    proxyData.opts?.buildAcceptTx ?? false,
+  )
+
+  // Overwrite address entry with proxy
+  const artifact = loadArtifact(proxyData.name)
+  const contractEntry = addressBook.getEntry(contractData.name)
+
+  addressBook.setEntry(contractData.name, {
     address: proxy.address,
-    initArgs: args.length === 0 ? undefined : args.map((e) => e.toString()),
+    initArgs:
+      contractData.args?.length === 0 ? undefined : contractData.args?.map((e) => e.toString()),
     creationCodeHash: hashHexString(artifact.bytecode),
     runtimeCodeHash: hashHexString(await sender.provider.getCode(proxy.address)),
     txHash: proxy.deployTransaction.hash,
@@ -136,7 +137,60 @@ export const deployContractWithProxyAndSave = async (
   console.info('> Contract saved to address book')
 
   // Use interface of contract but with the proxy address
-  return contract.attach(proxy.address)
+  implDeployResult.contract = implDeployResult.contract.attach(proxy.address)
+  return implDeployResult
+}
+
+export const deployContractImplementationAndSave: DeployWithProxyFunction = async (
+  sender: Signer,
+  contractData: DeployData,
+  addressBook: AddressBook,
+  proxyData: DeployData,
+): Promise<DeployResult> => {
+  if (!sender.provider) {
+    throw Error('Sender must be connected to a provider')
+  }
+
+  const proxyAdmin = getProxyAdmin(addressBook)
+
+  // Deploy implementation
+  const implDeployResult = await deployContract(sender, {
+    name: contractData.name,
+    args: [],
+  })
+
+  // Get proxy entry
+  const contractEntry = addressBook.getEntry(contractData.name)
+
+  // Accept implementation upgrade
+  await proxyAdminAcceptUpgrade(
+    sender,
+    implDeployResult.contract,
+    contractData.args ?? [],
+    proxyAdmin,
+    contractEntry.address,
+    proxyData.opts?.buildAcceptTx ?? false,
+  )
+
+  // Save address entry
+  contractEntry.implementation = {
+    address: implDeployResult.contract.address,
+    constructorArgs:
+      contractData.args?.length === 0 ? undefined : contractData.args?.map((e) => e.toString()),
+    creationCodeHash: implDeployResult.creationCodeHash,
+    runtimeCodeHash: implDeployResult.runtimeCodeHash,
+    txHash: implDeployResult.txHash,
+    libraries:
+      implDeployResult.libraries && Object.keys(implDeployResult.libraries).length > 0
+        ? implDeployResult.libraries
+        : undefined,
+  }
+  addressBook.setEntry(contractData.name, contractEntry)
+  console.info('> Contract saved to address book')
+
+  // Use interface of contract but with the proxy address
+  implDeployResult.contract = implDeployResult.contract.attach(contractEntry.address)
+  return implDeployResult
 }
 
 /**
@@ -180,4 +234,13 @@ const proxyAdminAcceptUpgrade = async (
   } else {
     await proxyAdmin.connect(sender)[acceptFunctionName](...acceptFunctionParams)
   }
+}
+
+// Get the proxy admin to own the proxy for this contract
+function getProxyAdmin(addressBook: AddressBook): Contract {
+  const proxyAdminEntry = addressBook.getEntry('GraphProxyAdmin')
+  if (!proxyAdminEntry) {
+    throw new Error('GraphProxyAdmin not detected in the config, must be deployed first!')
+  }
+  return loadContractAt('GraphProxyAdmin', proxyAdminEntry.address)
 }

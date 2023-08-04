@@ -1,5 +1,5 @@
 import { loadGraphNetworkContracts } from '../deployments'
-import { GraphChainId } from './lib/cross-chain'
+import { GraphChainId } from '../src'
 
 const chains: GraphChainId[] = [1, 5, 42161, 421613]
 

@@ -29,7 +29,11 @@ function parseAddressBookRef(
   value: string,
   abInject: ABRefReplace[],
 ): string {
-  const ref: string = ABRefMatcher.exec(value as string)[1]
+  const valueMatch = ABRefMatcher.exec(value)
+  if (valueMatch === null) {
+    throw new Error('Could not parse address book reference')
+  }
+  const ref = valueMatch[1]
   const [contractName, contractAttr] = ref.split('.')
 
   // This is a convention to inject variables into the config, for example the deployer address
@@ -113,11 +117,11 @@ export function getContractConfig(
 // YAML helper functions
 const getNode = (doc: YAML.Document.Parsed, path: string[]): YAMLMap => {
   try {
-    let node: YAMLMap
+    let node: YAMLMap | undefined
     for (const p of path) {
       node = node === undefined ? doc.get(p) : node.get(p)
     }
-    return node
+    return node as YAMLMap
   } catch (error) {
     throw new Error(`Could not find node: ${path}.`)
   }
@@ -133,6 +137,9 @@ function getItem(node: YAMLMap, key: string): Scalar {
 function getItemFromPath(doc: YAML.Document.Parsed, path: string) {
   const splitPath = path.split('/')
   const itemKey = splitPath.pop()
+  if (itemKey === undefined) {
+    throw new Error('Badly formed path.')
+  }
 
   const node = getNode(doc, splitPath)
   const item = getItem(node, itemKey)

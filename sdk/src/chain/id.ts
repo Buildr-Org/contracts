@@ -18,6 +18,9 @@ export const chains: GraphChainId[] = [...l1Chains, ...l2Chains]
 export const l1ToL2 = (chainId: number): GraphChainId => {
   if (!isGraphL1ChainId(chainId)) throw new Error(`Invalid L1 chain id: ${chainId}`)
   const pair = ChainList.find((cp) => cp.l1.id === chainId)
+  if (pair === undefined) {
+    throw new Error(`Could not find L2 chain id for L1 chain id: ${chainId}`)
+  }
   return pair.l2.id
 }
 /**
@@ -30,6 +33,9 @@ export const l1ToL2 = (chainId: number): GraphChainId => {
 export const l2ToL1 = (chainId: number): GraphChainId => {
   if (!isGraphL2ChainId(chainId)) throw new Error(`Invalid L2 chain id: ${chainId}`)
   const pair = ChainList.find((cp) => cp.l2.id === chainId)
+  if (pair === undefined) {
+    throw new Error(`Could not find L1 chain id for L2 chain id: ${chainId}`)
+  }
   return pair.l1.id
 }
 /**

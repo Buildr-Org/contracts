@@ -4,7 +4,7 @@ import { getContractFactory } from './factory'
 import { hashHexString } from '../../utils/byte'
 
 import type { Signer } from 'ethers'
-import type { ContractParam, DeployResult } from '../types'
+import type { DeployData, DeployResult, DeployFunction } from '../types/deploy'
 
 /**
  * Deploys a contract
@@ -20,24 +20,30 @@ import type { ContractParam, DeployResult } from '../types'
  *
  * @throws Error if the sender is not connected to a provider
  */
-export const deployContract = async (
+export const deployContract: DeployFunction = async (
   sender: Signer,
-  name: string,
-  args: Array<ContractParam>,
-  autolink = true,
+  contractData: DeployData,
 ): Promise<DeployResult> => {
+  const name = contractData.name
+  const args = contractData.args ?? []
+  const opts = contractData.opts ?? {}
+
   if (!sender.provider) {
     throw Error('Sender must be connected to a provider')
   }
 
   // Autolink
   const libraries = {}
-  if (autolink) {
+  if (opts?.autolink ?? true) {
     const artifact = loadArtifact(name)
     if (artifact.linkReferences && Object.keys(artifact.linkReferences).length > 0) {
       for (const fileReferences of Object.values(artifact.linkReferences)) {
         for (const libName of Object.keys(fileReferences)) {
-          const deployResult = await deployContract(sender, libName, [], false)
+          const deployResult = await deployContract(sender, {
+            name: libName,
+            args: [],
+            opts: { autolink: false },
+          })
           libraries[libName] = deployResult.contract.address
         }
       }
@@ -74,14 +80,23 @@ export const deployContract = async (
  *
  * @throws Error if the sender is not connected to a provider
  */
-export const deployContractAndSave = async (
+export const deployContractAndSave: DeployFunction = async (
   sender: Signer,
-  name: string,
-  args: Array<ContractParam>,
+  contractData: DeployData,
   addressBook: AddressBook,
 ): Promise<DeployResult> => {
+  const name = contractData.name
+  const args = contractData.args ?? []
+
+  if (!sender.provider) {
+    throw Error('Sender must be connected to a provider')
+  }
+
   // Deploy the contract
-  const deployResult = await deployContract(sender, name, args)
+  const deployResult = await deployContract(sender, {
+    name: name,
+    args: args,
+  })
 
   // Save address entry
   addressBook.setEntry(name, {

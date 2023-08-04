@@ -1,5 +1,4 @@
-import type { Contract } from 'ethers'
-import type { Libraries } from 'hardhat/types'
+import type { DeployResult } from './deploy'
 
 // TODO: doc this
 
@@ -14,14 +13,6 @@ export type AddressBookJson<
   ChainId extends string = string,
   ContractName extends string = string,
 > = Record<ChainId, Record<ContractName, AddressBookEntry>>
-
-export type DeployResult = {
-  contract: Contract
-  creationCodeHash: string
-  runtimeCodeHash: string
-  txHash: string
-  libraries?: Libraries
-}
 
 export type AddressBookEntry = {
   address: string
