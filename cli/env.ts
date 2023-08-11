@@ -4,8 +4,11 @@ import { Argv } from 'yargs'
 import { logger } from './logging'
 import { defaultOverrides } from './defaults'
 
-import { AddressBook, getAddressBook } from '../sdk/lib/deployment/address-book'
-import { loadGraphNetworkContracts, GraphNetworkContracts } from '../sdk/deployments/network'
+import {
+  loadGraphNetworkContracts,
+  GraphNetworkContracts,
+  GraphNetworkAddressBook,
+} from '../sdk/deployments/network'
 
 const { formatEther } = utils
 
@@ -18,7 +21,7 @@ export interface CLIEnvironment {
   nonce: number
   walletAddress: string
   wallet: Wallet
-  addressBook: AddressBook
+  addressBook: GraphNetworkAddressBook
   contracts: GraphNetworkContracts
   argv: CLIArgs
 }
@@ -42,8 +45,9 @@ export const loadEnv = async (argv: CLIArgs, wallet?: Wallet): Promise<CLIEnviro
   const chainId = (await wallet.provider.getNetwork()).chainId
   const nonce = await wallet.getTransactionCount()
   const walletAddress = await wallet.getAddress()
-  const addressBook = getAddressBook(argv.addressBook, chainId.toString())
-  const contracts = loadGraphNetworkContracts(argv.addressBook, chainId, wallet)
+  const addressBook = new GraphNetworkAddressBook(argv.addressBook, chainId)
+  // TODO: dont use throwOnFailure=false
+  const contracts = loadGraphNetworkContracts(argv.addressBook, chainId, wallet, false)
 
   logger.info(`Preparing contracts on chain id: ${chainId}`)
   logger.info(

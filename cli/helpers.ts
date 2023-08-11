@@ -80,7 +80,7 @@ export const pinMetadataToIPFS = async (
     result = await ipfsClient.add(Buffer.from(JSON.stringify(metadata)))
   } catch (e) {
     logger.error(`Failed to upload to IPFS: ${e}`)
-    return
+    return ''
   }
 
   const metaHash = result.path
